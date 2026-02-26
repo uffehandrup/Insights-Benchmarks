@@ -1,0 +1,30 @@
+# Build results
+bin/
+obj/
+
+# IDE settings
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets and local configs
+appsettings.*.secret.json
+.env
+.env.local
+docker-compose.yml
+*.md
+
+# Runtime
+*.log
+*.db
+*.db-shm
+*.db-wal

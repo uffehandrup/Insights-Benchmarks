@@ -1,0 +1,40 @@
+@XFlow.Insights.API_HostAddress = http://localhost:5212
+
+### Start workflow (streamId + workflowId)
+POST {{XFlow.Insights.API_HostAddress}}/api/workflows/start/123e4567-e89b-12d3-a456-426614174000/42
+Content-Type: application/json
+
+{
+  "workflowName": "Sample Workflow"
+}
+
+###
+
+### Complete workflow step
+POST {{XFlow.Insights.API_HostAddress}}/api/workflows/123e4567-e89b-12d3-a456-426614174000/42/step-completed
+Content-Type: application/json
+
+{
+  "stepNumber": 2
+}
+
+###
+
+### Complete workflow
+POST {{XFlow.Insights.API_HostAddress}}/api/workflows/123e4567-e89b-12d3-a456-426614174000/42/complete
+Content-Type: application/json
+
+{
+  "finalStatus": "Completed"
+}
+
+###
+
+### Get workflow details by stream ID + workflow ID
+GET {{XFlow.Insights.API_HostAddress}}/api/workflows/123e4567-e89b-12d3-a456-426614174000/42
+
+###
+
+### Get workflow event history
+GET {{XFlow.Insights.API_HostAddress}}/api/workflows/123e4567-e89b-12d3-a456-426614174000/42/events
+###
