@@ -16,3 +16,46 @@ Built with event sourcing principles for high consistency and auditability.
 - .NET 8.0 SDK
 - PostgreSQL 12+
 - Docker & Docker Compose (optional, for containerized setup)
+
+## Docker Compose usage
+
+The `docker-compose.yml` is split into:
+
+- **Default services (always-on infra):** `event-store`, `eventstoredb`, `pgadmin`
+- **Optional API service:** profile `app`
+- **On-demand benchmark runners:** profile `benchmarks`
+
+### Start only infrastructure
+
+```bash
+docker compose up -d
+```
+
+### Start API in container (networked like production)
+
+```bash
+docker compose --profile app up -d insights-api
+```
+
+### Run benchmarks only when you choose
+
+PostgreSQL benchmark:
+
+```bash
+docker compose --profile benchmarks run --rm benchmark-postgresql
+```
+
+EventStoreDB benchmark:
+
+```bash
+docker compose --profile benchmarks run --rm benchmark-eventstoredb
+```
+
+Both benchmark projects (one after another):
+
+```bash
+docker compose --profile benchmarks run --rm benchmark-postgresql && \
+docker compose --profile benchmarks run --rm benchmark-eventstoredb
+```
+
+This avoids benchmarks running automatically when opening/running normal compose startup.
