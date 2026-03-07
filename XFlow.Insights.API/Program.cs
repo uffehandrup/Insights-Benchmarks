@@ -12,9 +12,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // 1. Configure Marten
-var connectionString = builder.Configuration["Database:ConnectionString"]
-    ?? Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
-    ?? throw new InvalidOperationException("Database connection string is not configured. Set 'Database:ConnectionString' in appsettings.json or 'DB_CONNECTION_STRING' environment variable.");
+var connectionString = builder.Configuration["Database:ConnectionString"];
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("Database:ConnectionString is not configured in appsettings.");
+}
 
 builder.Services.AddMarten(opts =>
 {

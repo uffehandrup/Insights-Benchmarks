@@ -1,0 +1,16 @@
+## BenchmarkDotNet results
+BenchmarkDotNet.Artifacts/
+
+## Build artifacts
+bin/
+obj/
+
+## IDE
+.vs/
+.vscode/
+*.user
+*.sln.DotSettings.user
+
+## OS
+.DS_Store
+Thumbs.db

@@ -4,6 +4,8 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XFlow.Insights.API", "XFlow.Insights.API\XFlow.Insights.API.csproj", "{3DD05A2A-F642-4304-05FE-7E5EFCDA2E4E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XFlow.Insights.Benchmarks.PostgreSQL", "XFlow.Insights.Benchmarks.PostgreSQL\XFlow.Insights.Benchmarks.PostgreSQL.csproj", "{E5F4A8B1-2C3D-4E5F-6A7B-8C9D0E1F2A3B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,6 +16,10 @@ Global
 		{3DD05A2A-F642-4304-05FE-7E5EFCDA2E4E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3DD05A2A-F642-4304-05FE-7E5EFCDA2E4E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3DD05A2A-F642-4304-05FE-7E5EFCDA2E4E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E5F4A8B1-2C3D-4E5F-6A7B-8C9D0E1F2A3B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5F4A8B1-2C3D-4E5F-6A7B-8C9D0E1F2A3B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5F4A8B1-2C3D-4E5F-6A7B-8C9D0E1F2A3B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5F4A8B1-2C3D-4E5F-6A7B-8C9D0E1F2A3B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
