@@ -15,13 +15,13 @@ public static class WorkflowEndpoints
 
 // QUERY ENDPOINTS ------------------------
         
-        group.MapGet("/{streamId:guid}/{workflowId:int}", GetWorkflowDetailsAsync)
+        group.MapGet("/{streamId:guid}", GetWorkflowDetailsAsync)
             .WithName("GetWorkflowDetails")
             .WithOpenApi()
             .Produces<WorkflowDetails>(200)
             .Produces(404);
 
-        group.MapGet("/{streamId:guid}/{workflowId:int}/events", GetWorkflowEventHistoryAsync)
+        group.MapGet("/{streamId:guid}/events", GetWorkflowEventHistoryAsync)
             .WithName("GetWorkflowEventHistory")
             .WithOpenApi()
             .Produces<List<WorkflowEventLog>>(200)
@@ -85,27 +85,25 @@ public static class WorkflowEndpoints
 
     private static async Task<IResult> GetWorkflowDetailsAsync(
         Guid streamId,
-        int workflowId,
         IDocumentSession session,
         CancellationToken ct)
     {
         var handler = new WorkflowQueryHandler(session);
-        var query = new GetWorkflowDetailsQuery(streamId, workflowId);
+        var query = new GetWorkflowDetailsQuery(streamId);
         var result = await handler.HandleGetWorkflowDetailsAsync(query, ct);
 
         return result is not null
             ? Results.Ok(result)
-            : Results.NotFound(new { message = $"Workflow {workflowId} not found" });
+            : Results.NotFound(new { message = "Workflow not found" });
     }
 
     private static async Task<IResult> GetWorkflowEventHistoryAsync(
         Guid streamId,
-        int workflowId,
         IDocumentSession session,
         CancellationToken ct)
     {
         var handler = new WorkflowQueryHandler(session);
-        var query = new GetWorkflowEventHistoryQuery(streamId, workflowId);
+        var query = new GetWorkflowEventHistoryQuery(streamId);
 
         try
         {

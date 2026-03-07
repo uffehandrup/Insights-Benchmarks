@@ -10,8 +10,8 @@ public abstract record Query
     public Guid QueryId { get; init; } = Guid.NewGuid();
 }
 
-public record GetWorkflowDetailsQuery(Guid StreamId, int WorkflowId) : Query;
+public record GetWorkflowDetailsQuery(Guid StreamId) : Query;
 
-public record GetWorkflowEventHistoryQuery(Guid StreamId, int WorkflowId) : Query;
+public record GetWorkflowEventHistoryQuery(Guid StreamId) : Query;
 
 public record GetAllWorkflowsQuery(int? PageNumber = null, int? PageSize = null) : Query;

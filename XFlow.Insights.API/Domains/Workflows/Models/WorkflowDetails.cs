@@ -10,5 +10,5 @@ public class WorkflowDetails
     
     // metadata!
     public int TotalEventsProcessed { get; set; }
-    public int StepNumber { get; set; } = 1;
+    public int StepNumber { get; set; } = 1; // STEPS = TASKS = SUB-WORKFLOWS
 }
