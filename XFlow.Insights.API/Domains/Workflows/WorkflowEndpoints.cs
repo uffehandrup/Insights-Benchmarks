@@ -1,8 +1,6 @@
-using Marten;
 using XFlow.Insights.API.Domains.Workflows.Commands;
 using XFlow.Insights.API.Domains.Workflows.Handlers;
 using XFlow.Insights.API.Domains.Workflows.Queries;
-using XFlow.Insights.API.Domains.Workflows.Repositories;
 
 namespace XFlow.Insights.API.Domains.Workflows;
 
@@ -85,10 +83,9 @@ public static class WorkflowEndpoints
 
     private static async Task<IResult> GetWorkflowDetailsAsync(
         Guid streamId,
-        IDocumentSession session,
+        WorkflowQueryHandler handler,
         CancellationToken ct)
     {
-        var handler = new WorkflowQueryHandler(session);
         var query = new GetWorkflowDetailsQuery(streamId);
         var result = await handler.HandleGetWorkflowDetailsAsync(query, ct);
 
@@ -99,10 +96,9 @@ public static class WorkflowEndpoints
 
     private static async Task<IResult> GetWorkflowEventHistoryAsync(
         Guid streamId,
-        IDocumentSession session,
+        WorkflowQueryHandler handler,
         CancellationToken ct)
     {
-        var handler = new WorkflowQueryHandler(session);
         var query = new GetWorkflowEventHistoryQuery(streamId);
 
         try
@@ -122,13 +118,11 @@ public static class WorkflowEndpoints
         Guid streamId,
         int workflowId,
         StartWorkflowRequest request,
-        IDocumentSession session,
+        WorkflowCommandHandler handler,
         CancellationToken ct)
     {
         try
         {
-            var repository = new WorkflowRepository(session);
-            var handler = new WorkflowCommandHandler(repository);
             var command = new StartWorkflowCommand(streamId, workflowId, request.WorkflowName);
             await handler.HandleStartWorkflowAsync(command, ct);
 
@@ -144,13 +138,11 @@ public static class WorkflowEndpoints
         Guid streamId,
         int workflowId,
         CompleteWorkflowStepRequest request,
-        IDocumentSession session,
+        WorkflowCommandHandler handler,
         CancellationToken ct)
     {
         try
         {
-            var repository = new WorkflowRepository(session);
-            var handler = new WorkflowCommandHandler(repository);
             var command = new CompleteWorkflowStepCommand(streamId, workflowId, request.StepNumber);
             await handler.HandleCompleteStepAsync(command, ct);
 
@@ -166,13 +158,11 @@ public static class WorkflowEndpoints
         Guid streamId,
         int workflowId,
         CompleteWorkflowRequest? request,
-        IDocumentSession session,
+        WorkflowCommandHandler handler,
         CancellationToken ct)
     {
         try
         {
-            var repository = new WorkflowRepository(session);
-            var handler = new WorkflowCommandHandler(repository);
             var finalStatus = request?.FinalStatus ?? "Completed";
             var command = new CompleteWorkflowCommand(streamId, workflowId, finalStatus);
             await handler.HandleCompleteWorkflowAsync(command, ct);
@@ -189,13 +179,11 @@ public static class WorkflowEndpoints
         Guid streamId,
         int workflowId,
         FailWorkflowRequest request,
-        IDocumentSession session,
+        WorkflowCommandHandler handler,
         CancellationToken ct)
     {
         try
         {
-            var repository = new WorkflowRepository(session);
-            var handler = new WorkflowCommandHandler(repository);
             var command = new FailWorkflowCommand(streamId, workflowId, request.FailureReason);
             await handler.HandleFailWorkflowAsync(command, ct);
 
@@ -211,13 +199,11 @@ public static class WorkflowEndpoints
         Guid streamId,
         int workflowId,
         PauseWorkflowRequest? request,
-        IDocumentSession session,
+        WorkflowCommandHandler handler,
         CancellationToken ct)
     {
         try
         {
-            var repository = new WorkflowRepository(session);
-            var handler = new WorkflowCommandHandler(repository);
             var command = new PauseWorkflowCommand(streamId, workflowId, request?.Reason);
             await handler.HandlePauseWorkflowAsync(command, ct);
 
@@ -232,13 +218,11 @@ public static class WorkflowEndpoints
     private static async Task<IResult> ResumeWorkflowAsync(
         Guid streamId,
         int workflowId,
-        IDocumentSession session,
+        WorkflowCommandHandler handler,
         CancellationToken ct)
     {
         try
         {
-            var repository = new WorkflowRepository(session);
-            var handler = new WorkflowCommandHandler(repository);
             var command = new ResumeWorkflowCommand(streamId, workflowId);
             await handler.HandleResumeWorkflowAsync(command, ct);
 
@@ -254,13 +238,11 @@ public static class WorkflowEndpoints
         Guid streamId,
         int workflowId,
         CancelWorkflowRequest? request,
-        IDocumentSession session,
+        WorkflowCommandHandler handler,
         CancellationToken ct)
     {
         try
         {
-            var repository = new WorkflowRepository(session);
-            var handler = new WorkflowCommandHandler(repository);
             var command = new CancelWorkflowCommand(streamId, workflowId, request?.Reason);
             await handler.HandleCancelWorkflowAsync(command, ct);
 

@@ -2,6 +2,7 @@ using Marten;
 using JasperFx.Events.Projections;
 using JasperFx;
 using EventStore.Client;
+using XFlow.Insights.API.Domains.Workflows.Handlers;
 using XFlow.Insights.API.Domains.Workflows;
 using XFlow.Insights.API.Domains.Workflows.DomainEvents;
 using XFlow.Insights.API.Domains.Workflows.Repositories;
@@ -32,11 +33,12 @@ if (provider == "Postgres")
     // Register the projection to handle domain events
     // Inline means the read model is updated in the same transaction as the event append.
     // Guarantees strong consistency.
-    opts.Projections.Add<WorkflowDetailsProjection>(ProjectionLifecycle.Inline);
+    opts.Projections.Add<WorkflowDetailsProjection>(ProjectionLifecycle.Async);
     });
 
     // 2. Register CQRS components
     builder.Services.AddScoped<IWorkflowRepository, WorkflowRepository>();
+    builder.Services.AddScoped<IWorkflowQueryRepository, MartenWorkflowQueryRepository>();
 }
 else if (provider == "EventStore")
 {
@@ -52,6 +54,7 @@ else if (provider == "EventStore")
     
     builder.Services.AddSingleton(eventStoreClient);
     builder.Services.AddScoped<IWorkflowRepository, EventStoreDbWorkflowRepository>();
+    builder.Services.AddScoped<IWorkflowQueryRepository, EventStoreDbWorkflowQueryRepository>();
 
     Console.WriteLine($"[Startup] EventStoreDB initialized");
     Console.WriteLine($"[Startup] Connection: {connectionString}");
@@ -60,6 +63,9 @@ else
 {
     throw new InvalidOperationException($"Unknown database provider: {provider}. Expected 'Postgres' or 'EventStore'.");
 }
+
+builder.Services.AddScoped<WorkflowCommandHandler>();
+builder.Services.AddScoped<WorkflowQueryHandler>();
 
 
 

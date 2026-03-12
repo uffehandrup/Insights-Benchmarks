@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EventStore.Client;
+using Microsoft.Extensions.Logging;
 using XFlow.Insights.API.Domains.Workflows.DomainEvents;
 
 namespace XFlow.Insights.API.Domains.Workflows.Repositories;
@@ -11,13 +12,13 @@ namespace XFlow.Insights.API.Domains.Workflows.Repositories;
 public class EventStoreDbWorkflowRepository : IWorkflowRepository
 {
     private readonly EventStoreClient _client;
-    private readonly HashSet<Guid> _existingStreams;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly ILogger<EventStoreDbWorkflowRepository> _logger;
 
-    public EventStoreDbWorkflowRepository(EventStoreClient client)
+    public EventStoreDbWorkflowRepository(EventStoreClient client, ILogger<EventStoreDbWorkflowRepository> logger)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
-        _existingStreams = new HashSet<Guid>();
+        _logger = logger;
         
         // Use default System.Text.Json serialization (matches Marten's default)
         _jsonOptions = new JsonSerializerOptions
@@ -35,26 +36,20 @@ public class EventStoreDbWorkflowRepository : IWorkflowRepository
         if (@event == null)
             throw new ArgumentNullException(nameof(@event));
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         var eventData = SerializeEvent(@event);
         var streamName = $"workflow-{streamId}";
         
-        // Determine expected revision based on stream existence
-        var expectedRevision = _existingStreams.Contains(streamId) 
-            ? StreamState.Any 
-            : StreamState.NoStream;
-
-        // Append single event to stream
+        // Use StreamState.Any for both new and existing streams
+        // EventStoreDB will create the stream if it doesn't exist
         await _client.AppendToStreamAsync(
             streamName,
-            expectedRevision,
+            StreamState.Any,
             new[] { eventData },
             cancellationToken: ct);
 
-        // Track stream as existing after first append
-        if (!_existingStreams.Contains(streamId))
-        {
-            _existingStreams.Add(streamId);
-        }
+        sw.Stop();
+        _logger.LogDebug("[EventStoreDB] AppendEvent took {ElapsedMs}ms for stream {StreamId}", sw.ElapsedMilliseconds, streamId);
     }
 
     /// <summary>

@@ -22,6 +22,10 @@ appsettings.*.secret.json
 .env.local
 docker-compose.yml
 *.md
+*.csv
+*.html
+*.txt
+*.sh
 
 # Runtime
 *.log
