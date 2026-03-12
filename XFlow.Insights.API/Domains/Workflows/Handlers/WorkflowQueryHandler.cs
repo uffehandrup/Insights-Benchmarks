@@ -1,5 +1,5 @@
-using Marten;
 using XFlow.Insights.API.Domains.Workflows.Queries;
+using XFlow.Insights.API.Domains.Workflows.Repositories;
 
 namespace XFlow.Insights.API.Domains.Workflows.Handlers;
 
@@ -9,38 +9,25 @@ namespace XFlow.Insights.API.Domains.Workflows.Handlers;
 /// </summary>
 public class WorkflowQueryHandler
 {
-    private readonly IDocumentSession _session;
+    private readonly IWorkflowQueryRepository _queryRepository;
 
-    public WorkflowQueryHandler(IDocumentSession session)
+    public WorkflowQueryHandler(IWorkflowQueryRepository queryRepository)
     {
-        _session = session;
+        _queryRepository = queryRepository;
     }
 
     public async Task<WorkflowDetails?> HandleGetWorkflowDetailsAsync(
         GetWorkflowDetailsQuery query,
         CancellationToken ct = default)
     {
-        // Read from the projection (pre-calculated read model)
-        var workflow = await _session.LoadAsync<WorkflowDetails>(query.StreamId, token: ct);
-        return workflow;
+        return await _queryRepository.GetWorkflowDetailsAsync(query.StreamId, ct);
     }
 
     public async Task<List<WorkflowEventLog>> HandleGetWorkflowEventHistoryAsync(
         GetWorkflowEventHistoryQuery query,
         CancellationToken ct = default)
     {
-        var events = await _session.Events.FetchStreamAsync(query.StreamId, token: ct);
-
-        return events
-            .Select(e => new WorkflowEventLog
-            {
-                EventId = e.Id,
-                EventType = e.Data.GetType().Name,
-                OccurredAt = e.Timestamp.DateTime,
-                EventData = System.Text.Json.JsonSerializer.Serialize(e.Data),
-                Version = e.Version
-            })
-            .ToList();
+        return await _queryRepository.GetWorkflowEventHistoryAsync(query.StreamId, ct);
     }
 }
 
