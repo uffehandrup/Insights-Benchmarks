@@ -14,39 +14,46 @@ public abstract record Command
 public record StartWorkflowCommand(
     Guid StreamId,
     int WorkflowId,
-    string WorkflowName) : Command;
+    string WorkflowName,
+    DateTime IngestedAt) : Command;
 
 public record CompleteWorkflowStepCommand(
     Guid StreamId,
     int WorkflowId,
-    int StepNumber
+    int StepNumber,
+    DateTime IngestedAt
 ) : Command;
 
 public record CompleteWorkflowCommand(
     Guid StreamId,
     int WorkflowId,
-    string FinalStatus = "Completed"
+    string FinalStatus = "Completed",
+    DateTime IngestedAt = default
 ) : Command;
 
 public record FailWorkflowCommand(
     Guid StreamId,
     int WorkflowId,
-    string FailureReason
+    string FailureReason,
+    DateTime IngestedAt
 ) : Command;
 
 public record PauseWorkflowCommand(
     Guid StreamId,
     int WorkflowId,
-    string? Reason = null
+    string? Reason = null,
+    DateTime IngestedAt = default
 ) : Command;
 
 public record ResumeWorkflowCommand(
     Guid StreamId,
-    int WorkflowId
+    int WorkflowId,
+    DateTime IngestedAt
 ) : Command;
 
 public record CancelWorkflowCommand(
     Guid StreamId,
     int WorkflowId,
-    string? Reason = null
+    string? Reason = null,
+    DateTime IngestedAt = default
 ) : Command;

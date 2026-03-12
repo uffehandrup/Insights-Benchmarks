@@ -58,7 +58,7 @@ public class EventStoreDbWorkflowRepository : IWorkflowRepository
     private EventData SerializeEvent(DomainEvent @event)
     {
         var eventType = @event.GetType().Name;
-        var jsonBytes = JsonSerializer.SerializeToUtf8Bytes(@event, _jsonOptions);
+        var jsonBytes = JsonSerializer.SerializeToUtf8Bytes(@event, @event.GetType(), _jsonOptions);
         
         return new EventData(
             Uuid.NewUuid(),
