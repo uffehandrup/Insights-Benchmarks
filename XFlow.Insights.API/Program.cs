@@ -1,10 +1,13 @@
 using Marten;
 using JasperFx.Events.Projections;
+using JasperFx.Events.Daemon;
 using JasperFx;
 using EventStore.Client;
+using Npgsql;
 using XFlow.Insights.API.Domains.Workflows.Handlers;
 using XFlow.Insights.API.Domains.Workflows;
 using XFlow.Insights.API.Domains.Workflows.DomainEvents;
+using XFlow.Insights.API.Domains.Workflows.Projections;
 using XFlow.Insights.API.Domains.Workflows.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,17 +27,17 @@ if (provider == "Postgres")
     {
         throw new InvalidOperationException("Database:PostgreSQLConnectionString is not configured in appsettings.");
     }
-    builder.Services.AddMarten(opts =>
-    {
-    opts.Connection(connectionString);
-    opts.Events.DatabaseSchemaName = "event_store";
-    opts.AutoCreateSchemaObjects = AutoCreate.CreateOrUpdate;
+    builder.Services
+        .AddMarten(opts =>
+        {
+            opts.Connection(connectionString);
+            opts.Events.DatabaseSchemaName = "event_store";
+            opts.AutoCreateSchemaObjects = AutoCreate.CreateOrUpdate;
 
-    // Register the projection to handle domain events
-    // Inline means the read model is updated in the same transaction as the event append.
-    // Guarantees strong consistency.
-    opts.Projections.Add<WorkflowDetailsProjection>(ProjectionLifecycle.Async);
-    });
+            // Async lifecycle gives us measurable projection catch-up latency.
+            opts.Projections.Add<WorkflowDetailsProjection>(ProjectionLifecycle.Async);
+        })
+        .AddAsyncDaemon(DaemonMode.Solo);
 
     // 2. Register CQRS components
     builder.Services.AddScoped<IWorkflowRepository, WorkflowRepository>();
@@ -43,21 +46,38 @@ if (provider == "Postgres")
 else if (provider == "EventStore")
 {
     connectionString = builder.Configuration["Database:EventStoreDBConnectionString"];
+    var projectionConnectionString = builder.Configuration["Database:ProjectionPostgreSQLConnectionString"]
+        ?? builder.Configuration["Database:PostgreSQLConnectionString"];
+
     if (string.IsNullOrEmpty(connectionString))
     {
         throw new InvalidOperationException("Database:EventStoreDBConnectionString is not configured in appsettings.");
+    }
+    if (string.IsNullOrEmpty(projectionConnectionString))
+    {
+        throw new InvalidOperationException("Database:ProjectionPostgreSQLConnectionString or Database:PostgreSQLConnectionString must be configured for EventStore projections.");
     }
 
     // Configure EventStoreDB client
     var settings = EventStoreClientSettings.Create(connectionString);
     var eventStoreClient = new EventStoreClient(settings);
+    var projectionDataSource = NpgsqlDataSource.Create(projectionConnectionString);
     
     builder.Services.AddSingleton(eventStoreClient);
+    builder.Services.AddSingleton(projectionDataSource);
+    builder.Services.AddSingleton<PostgresProjectionSchemaManager>();
+    builder.Services.AddSingleton<PostgresWorkflowDetailsStore>();
+    builder.Services.AddSingleton<IWorkflowDetailsReadModelReader>(sp => sp.GetRequiredService<PostgresWorkflowDetailsStore>());
+    builder.Services.AddSingleton<IWorkflowDetailsProjectionWriter>(sp => sp.GetRequiredService<PostgresWorkflowDetailsStore>());
+    builder.Services.AddSingleton<IProjectionCheckpointStore, PostgresProjectionCheckpointStore>();
+    builder.Services.AddSingleton<WorkflowDetailsProjector>();
     builder.Services.AddScoped<IWorkflowRepository, EventStoreDbWorkflowRepository>();
     builder.Services.AddScoped<IWorkflowQueryRepository, EventStoreDbWorkflowQueryRepository>();
+    builder.Services.AddHostedService<EventStoreWorkflowProjectionWorker>();
 
     Console.WriteLine($"[Startup] EventStoreDB initialized");
     Console.WriteLine($"[Startup] Connection: {connectionString}");
+    Console.WriteLine($"[Startup] Projection store: PostgreSQL");
 }
 else
 {

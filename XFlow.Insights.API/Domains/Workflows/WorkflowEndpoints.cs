@@ -123,7 +123,8 @@ public static class WorkflowEndpoints
     {
         try
         {
-            var command = new StartWorkflowCommand(streamId, workflowId, request.WorkflowName);
+            var ingestedAt = DateTime.UtcNow;
+            var command = new StartWorkflowCommand(streamId, workflowId, request.WorkflowName, ingestedAt);
             await handler.HandleStartWorkflowAsync(command, ct);
 
             return Results.Created($"/api/workflows/{streamId}/{workflowId}", new { streamId, workflowId });
@@ -143,7 +144,8 @@ public static class WorkflowEndpoints
     {
         try
         {
-            var command = new CompleteWorkflowStepCommand(streamId, workflowId, request.StepNumber);
+            var ingestedAt = DateTime.UtcNow;
+            var command = new CompleteWorkflowStepCommand(streamId, workflowId, request.StepNumber, ingestedAt);
             await handler.HandleCompleteStepAsync(command, ct);
 
             return Results.Ok(new { message = "Step completed" });
@@ -164,7 +166,8 @@ public static class WorkflowEndpoints
         try
         {
             var finalStatus = request?.FinalStatus ?? "Completed";
-            var command = new CompleteWorkflowCommand(streamId, workflowId, finalStatus);
+            var ingestedAt = DateTime.UtcNow;
+            var command = new CompleteWorkflowCommand(streamId, workflowId, finalStatus, ingestedAt);
             await handler.HandleCompleteWorkflowAsync(command, ct);
 
             return Results.Ok(new { message = "Workflow completed" });
@@ -184,7 +187,8 @@ public static class WorkflowEndpoints
     {
         try
         {
-            var command = new FailWorkflowCommand(streamId, workflowId, request.FailureReason);
+            var ingestedAt = DateTime.UtcNow;
+            var command = new FailWorkflowCommand(streamId, workflowId, request.FailureReason, ingestedAt);
             await handler.HandleFailWorkflowAsync(command, ct);
 
             return Results.Ok(new { message = "Workflow failed" });
@@ -204,7 +208,8 @@ public static class WorkflowEndpoints
     {
         try
         {
-            var command = new PauseWorkflowCommand(streamId, workflowId, request?.Reason);
+            var ingestedAt = DateTime.UtcNow;
+            var command = new PauseWorkflowCommand(streamId, workflowId, request?.Reason, ingestedAt);
             await handler.HandlePauseWorkflowAsync(command, ct);
 
             return Results.Ok(new { message = "Workflow paused" });
@@ -223,7 +228,8 @@ public static class WorkflowEndpoints
     {
         try
         {
-            var command = new ResumeWorkflowCommand(streamId, workflowId);
+            var ingestedAt = DateTime.UtcNow;
+            var command = new ResumeWorkflowCommand(streamId, workflowId, ingestedAt);
             await handler.HandleResumeWorkflowAsync(command, ct);
 
             return Results.Ok(new { message = "Workflow resumed" });
@@ -243,7 +249,8 @@ public static class WorkflowEndpoints
     {
         try
         {
-            var command = new CancelWorkflowCommand(streamId, workflowId, request?.Reason);
+            var ingestedAt = DateTime.UtcNow;
+            var command = new CancelWorkflowCommand(streamId, workflowId, request?.Reason, ingestedAt);
             await handler.HandleCancelWorkflowAsync(command, ct);
 
             return Results.Ok(new { message = "Workflow cancelled" });

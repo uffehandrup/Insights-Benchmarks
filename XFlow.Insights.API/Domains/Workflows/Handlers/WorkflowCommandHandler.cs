@@ -24,7 +24,8 @@ public class WorkflowCommandHandler
             cmd.StreamId,
             cmd.WorkflowId, 
             cmd.WorkflowName, 
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            cmd.IngestedAt);
 
         // Append to event store (creates stream if doesn't exist)
         await _repository.AppendEventAsync(cmd.StreamId, @event, ct);
@@ -39,7 +40,8 @@ public class WorkflowCommandHandler
             cmd.StreamId,
             cmd.WorkflowId, 
             cmd.StepNumber, 
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            cmd.IngestedAt);
 
         // Append to event store
         await _repository.AppendEventAsync(cmd.StreamId, @event, ct);
@@ -52,7 +54,8 @@ public class WorkflowCommandHandler
             cmd.StreamId,
             cmd.WorkflowId, 
             cmd.FinalStatus, 
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            cmd.IngestedAt);
 
         // Append to event store
         await _repository.AppendEventAsync(cmd.StreamId, @event, ct);
@@ -65,7 +68,8 @@ public class WorkflowCommandHandler
             cmd.StreamId,
             cmd.WorkflowId, 
             cmd.FailureReason, 
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            cmd.IngestedAt);
 
         // Append to event store
         await _repository.AppendEventAsync(cmd.StreamId, @event, ct);
@@ -78,7 +82,8 @@ public class WorkflowCommandHandler
             cmd.StreamId,
             cmd.WorkflowId, 
             cmd.Reason, 
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            cmd.IngestedAt);
 
         // Append to event store
         await _repository.AppendEventAsync(cmd.StreamId, @event, ct);
@@ -90,7 +95,8 @@ public class WorkflowCommandHandler
         var @event = new WorkflowResumedDomainEvent(
             cmd.StreamId,
             cmd.WorkflowId, 
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            cmd.IngestedAt);
 
         // Append to event store
         await _repository.AppendEventAsync(cmd.StreamId, @event, ct);
@@ -103,7 +109,8 @@ public class WorkflowCommandHandler
             cmd.StreamId,
             cmd.WorkflowId, 
             cmd.Reason, 
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            cmd.IngestedAt);
 
         // Append to event store
         await _repository.AppendEventAsync(cmd.StreamId, @event, ct);
