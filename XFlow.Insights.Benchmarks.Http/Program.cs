@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
+using System.Threading.Channels;
 using NBomber.CSharp;
 using NBomber.Contracts;
 using NBomber.Http.CSharp;
@@ -10,6 +11,12 @@ namespace XFlow.Insights.Benchmarks.Http;
 internal static class Program
 {
     private const int SeedWorkflowCount = 200;
+    private const int ActiveWorkflowPoolCapacity = 4096;
+    private const int ProjectionPollWorkerCount = 10;
+    private const int ProjectionPollAttempts = 20;
+    private const int InjectRate = 50;
+    private const int ReadRate = 50;
+    private static readonly TimeSpan ProjectionPollDelay = TimeSpan.FromMilliseconds(50);
 
     static async Task Main(string[] args)
     {
@@ -48,14 +55,15 @@ internal static class Program
         using var httpClient = new HttpClient();
         httpClient.Timeout = TimeSpan.FromSeconds(30);
 
-        var activeWorkflowStreams = new ConcurrentBag<Guid>();
+        var activeWorkflowStreams = new ActiveWorkflowPool(ActiveWorkflowPoolCapacity);
+        using var projectionPoller = new ProjectionReadinessPoller(httpClient, apiUrl, activeWorkflowStreams);
 
         await SeedWorkflowPoolAsync(httpClient, apiUrl, activeWorkflowStreams);
 
         // Let async projections catch up before dashboard traffic starts.
         await Task.Delay(TimeSpan.FromSeconds(3));
 
-        var writeScenario = CreateWorkflowLifecycleScenario(apiUrl, httpClient, activeWorkflowStreams);
+        var writeScenario = CreateWorkflowLifecycleScenario(apiUrl, httpClient, projectionPoller);
         var readScenario = CreateDashboardReadScenario(apiUrl, httpClient, activeWorkflowStreams);
 
         NBomberRunner
@@ -68,7 +76,7 @@ internal static class Program
     private static ScenarioProps CreateWorkflowLifecycleScenario(
         string apiUrl,
         HttpClient httpClient,
-        ConcurrentBag<Guid> activeWorkflowStreams)
+        ProjectionReadinessPoller projectionPoller)
     {
         return Scenario.Create("Workflow_Lifecycle_Write_Test", async context =>
         {
@@ -107,25 +115,9 @@ internal static class Program
                 var completeResponse = await NbHttp.Send(httpClient, completeRequest);
                 if (!completeResponse.IsError)
                 {
-                    // Fire-and-forget: add to the read pool only once the projection has caught up.
-                    // This keeps write latency unaffected while preventing 404s on reads.
-                    _ = Task.Run(async () =>
-                    {
-                        for (var i = 0; i < 40; i++)
-                        {
-                            await Task.Delay(50);
-                            try
-                            {
-                                var check = await httpClient.GetAsync($"{apiUrl}/api/workflows/{streamId}");
-                                if (check.IsSuccessStatusCode)
-                                {
-                                    activeWorkflowStreams.Add(streamId);
-                                    return;
-                                }
-                            }
-                            catch { /* ignore transient errors during projection warm-up */ }
-                        }
-                    });
+                    // Queue projection readiness checks through a bounded worker pool so
+                    // warm-up does not create one long-lived task per completed workflow.
+                    projectionPoller.TryEnqueue(streamId);
                 }
 
                 return completeResponse;
@@ -134,23 +126,22 @@ internal static class Program
         .WithWarmUpDuration(TimeSpan.FromSeconds(20))
         .WithLoadSimulations(
             // Sustained write pressure with concurrent stream lifecycles.
-            Simulation.Inject(rate: 70, interval: TimeSpan.FromSeconds(1), during: TimeSpan.FromMinutes(2))
+            Simulation.Inject(rate: InjectRate, interval: TimeSpan.FromSeconds(1), during: TimeSpan.FromMinutes(2))
         );
     }
 
     private static ScenarioProps CreateDashboardReadScenario(
         string apiUrl,
         HttpClient httpClient,
-        ConcurrentBag<Guid> activeWorkflowStreams)
+        ActiveWorkflowPool activeWorkflowStreams)
     {
         return Scenario.Create("Dashboard_Read_Load_Test", async context =>
         {
             return await Step.Run("dashboard_get_workflow", context, async () =>
             {
-                var pool = activeWorkflowStreams.ToArray();
-                var streamId = pool.Length == 0
-                    ? Guid.NewGuid()
-                    : pool[Random.Shared.Next(pool.Length)];
+                var streamId = activeWorkflowStreams.TryGetRandom(out var activeStreamId)
+                    ? activeStreamId
+                    : Guid.NewGuid();
                 var request = NbHttp.CreateRequest("GET", $"{apiUrl}/api/workflows/{streamId}");
                 return await NbHttp.Send(httpClient, request);
             });
@@ -158,14 +149,14 @@ internal static class Program
         .WithWarmUpDuration(TimeSpan.FromSeconds(20))
         .WithLoadSimulations(
             // Simulates heavy dashboard reads while writes keep flowing.
-            Simulation.Inject(rate: 350, interval: TimeSpan.FromSeconds(1), during: TimeSpan.FromMinutes(2))
+            Simulation.Inject(rate: ReadRate, interval: TimeSpan.FromSeconds(1), during: TimeSpan.FromMinutes(2))
         );
     }
 
     private static async Task SeedWorkflowPoolAsync(
         HttpClient httpClient,
         string apiUrl,
-        ConcurrentBag<Guid> activeWorkflowStreams)
+        ActiveWorkflowPool activeWorkflowStreams)
     {
         Console.WriteLine($"Seeding {SeedWorkflowCount} active workflows for dashboard read pool...");
 
@@ -183,6 +174,7 @@ internal static class Program
                 };
 
                 var response = await httpClient.SendAsync(startRequest);
+                response.Dispose();
                 if (response.IsSuccessStatusCode)
                 {
                     activeWorkflowStreams.Add(streamId);
@@ -191,5 +183,135 @@ internal static class Program
 
         await Task.WhenAll(seedTasks);
         Console.WriteLine($"Seed complete. Active workflow pool size: {activeWorkflowStreams.Count}");
+    }
+
+    private sealed class ActiveWorkflowPool
+    {
+        private readonly Guid[] _buffer;
+        private int _count;
+        private long _nextIndex = -1;
+
+        public ActiveWorkflowPool(int capacity)
+        {
+            _buffer = new Guid[capacity];
+        }
+
+        public int Count => Math.Min(Volatile.Read(ref _count), _buffer.Length);
+
+        public void Add(Guid streamId)
+        {
+            var index = (int)(Interlocked.Increment(ref _nextIndex) % _buffer.Length);
+            _buffer[index] = streamId;
+
+            while (true)
+            {
+                var current = Volatile.Read(ref _count);
+                if (current >= _buffer.Length)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _count, current + 1, current) == current)
+                {
+                    return;
+                }
+            }
+        }
+
+        public bool TryGetRandom(out Guid streamId)
+        {
+            var count = Count;
+            if (count == 0)
+            {
+                streamId = Guid.Empty;
+                return false;
+            }
+
+            streamId = _buffer[Random.Shared.Next(count)];
+            return streamId != Guid.Empty;
+        }
+    }
+
+    private sealed class ProjectionReadinessPoller : IDisposable
+    {
+        private readonly HttpClient _httpClient;
+        private readonly string _apiUrl;
+        private readonly ActiveWorkflowPool _activeWorkflowPool;
+        private readonly CancellationTokenSource _cts = new();
+        private readonly Channel<Guid> _queue;
+        private readonly Task[] _workers;
+
+        public ProjectionReadinessPoller(HttpClient httpClient, string apiUrl, ActiveWorkflowPool activeWorkflowPool)
+        {
+            _httpClient = httpClient;
+            _apiUrl = apiUrl;
+            _activeWorkflowPool = activeWorkflowPool;
+            _queue = Channel.CreateBounded<Guid>(new BoundedChannelOptions(ActiveWorkflowPoolCapacity)
+            {
+                SingleReader = false,
+                SingleWriter = false,
+                FullMode = BoundedChannelFullMode.DropOldest
+            });
+            _workers = Enumerable.Range(0, ProjectionPollWorkerCount)
+                .Select(_ => Task.Run(ProcessQueueAsync))
+                .ToArray();
+        }
+
+        public bool TryEnqueue(Guid streamId) => _queue.Writer.TryWrite(streamId);
+
+        public void Dispose()
+        {
+            _queue.Writer.TryComplete();
+            _cts.Cancel();
+
+            try
+            {
+                Task.WaitAll(_workers, TimeSpan.FromSeconds(2));
+            }
+            catch
+            {
+                // Best-effort shutdown for benchmark helpers.
+            }
+
+            _cts.Dispose();
+        }
+
+        private async Task ProcessQueueAsync()
+        {
+            try
+            {
+                await foreach (var streamId in _queue.Reader.ReadAllAsync(_cts.Token))
+                {
+                    for (var i = 0; i < ProjectionPollAttempts; i++)
+                    {
+                        try
+                        {
+                            await Task.Delay(ProjectionPollDelay, _cts.Token);
+                            using var check = await _httpClient.GetAsync(
+                                $"{_apiUrl}/api/workflows/{streamId}",
+                                _cts.Token);
+
+                            if (check.IsSuccessStatusCode)
+                            {
+                                _activeWorkflowPool.Add(streamId);
+                                break;
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            return;
+                        }
+                        catch
+                        {
+                            // Ignore transient errors during projection warm-up.
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown path.
+            }
+        }
     }
 }
