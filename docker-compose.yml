@@ -1,0 +1,150 @@
+services:
+  event-store:
+    image: postgres:18.2-bookworm
+    container_name: postgres
+    cpus: '8'
+    mem_limit: 8G
+    profiles: [ "database" ]
+    networks:
+      - backend
+    environment:
+      POSTGRES_USER: es_admin
+      POSTGRES_PASSWORD: StrongForNow1
+      POSTGRES_DB: event_sourcing
+    ports:
+      - "5432:5432"
+    volumes:
+      - marten_es_data:/var/lib/postgresql
+    command:
+      # Optimization for event-heavy workloads
+      - "postgres"
+      - "-c"
+      - "wal_level=logical" # Write Ahead Log = Enables Change Data Capture CDC
+      - "-c"
+      - "max_replication_slots=10"
+      - "-c"
+      - "max_connections=250"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U es_admin -d event_sourcing"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  eventstoredb:
+    image: eventstore/eventstore:lts
+    container_name: eventstoredb
+    cpus: '8'
+    mem_limit: 8G
+    profiles: [ "database" ]
+    networks:
+      - backend
+    environment:
+      - EVENTSTORE_CLUSTER_SIZE=1
+      - EVENTSTORE_RUN_PROJECTIONS=None
+      - EVENTSTORE_INSECURE=true
+    ports:
+      - "2113:2113"  # HTTP/gRPC
+      - "1113:1113"  # TCP (optional)
+    volumes:
+      - esdb_data:/var/lib/eventstore
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:9.12.0
+    container_name: pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@xflow.dk
+      - PGADMIN_DEFAULT_PASSWORD=adminpassword
+    profiles: ["database"]
+    networks:
+      - backend
+    ports:
+      - "5050:80"
+    # volumes:
+    #   - pgadmin_data:/data/pgadmin
+    restart: unless-stopped
+
+  insights-api-postgres:
+    build:
+      context: .
+      dockerfile: XFlow.Insights.API/Dockerfile
+    image: xflow-insights-api:latest
+    container_name: insights-api-postgres
+    profiles: ["app"]
+    cpus: '2'
+    mem_limit: 2G
+    networks:
+      - backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Database__PostgreSQLConnectionString=Host=192.168.0.101;Port=5432;Database=event_sourcing;Username=es_admin;Password=StrongForNow1;Maximum Pool Size=40
+      - Database__Provider=Postgres
+    ports:
+      - "8080:8080"
+
+  insights-api-eventstore:
+    build:
+      context: .
+      dockerfile: XFlow.Insights.API/Dockerfile
+    image: xflow-insights-api:latest
+    container_name: insights-api-eventstore
+    profiles: ["app"]
+    cpus: '8'
+    mem_limit: 8G
+    networks:
+      - backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Database__Provider=EventStore
+      - Database__EventStoreDBConnectionString=esdb://admin:changeit@192.168.0.101:2113?tls=false
+      - Database__ProjectionPostgreSQLConnectionString=Host=192.168.0.101;Port=5432;Database=event_sourcing;Username=es_admin;Password=StrongForNow1;Maximum Pool Size=20
+    ports:
+      - "8081:8080"
+
+  benchmark-postgresql:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    container_name: benchmark_postgresql
+    profiles: ["benchmarks"]
+    working_dir: /workspace
+    cpus: '2'
+    mem_limit: 2G
+    volumes:
+      - .:/workspace
+    networks:
+      - backend
+    environment:
+      - Database__ConnectionString=Host=event-store;Port=5432;Database=event_sourcing;Username=es_admin;Password=StrongForNow1
+    depends_on:
+      event-store:
+        condition: service_healthy
+    command: ["dotnet", "run", "--project", "XFlow.Insights.Benchmarks.PostgreSQL/XFlow.Insights.Benchmarks.PostgreSQL.csproj", "-c", "Release"]
+    restart: "no"
+
+  benchmark-eventstoredb:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    container_name: benchmark_eventstoredb
+    profiles: ["benchmarks"]
+    working_dir: /workspace
+    cpus: '2'
+    mem_limit: 2G
+    volumes:
+      - .:/workspace
+    networks:
+      - backend
+    environment:
+      - EventStoreDB__ConnectionString=esdb://admin:changeit@eventstoredb:2113?tls=false
+    depends_on:
+      eventstoredb:
+        condition: service_started
+    command: ["dotnet", "run", "--project", "XFlow.Insights.Benchmarks.EventStoreDB/XFlow.Insights.Benchmarks.EventStoreDB.csproj", "-c", "Release"]
+    restart: "no"
+
+
+networks:
+  backend: {}
+
+volumes:
+  marten_es_data: {}
+  esdb_data: {}
+#   pgadmin_data: {}
