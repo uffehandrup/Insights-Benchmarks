@@ -36,6 +36,7 @@ if (provider == "Postgres")
 
             // Async lifecycle gives us measurable projection catch-up latency.
             opts.Projections.Add<WorkflowDetailsProjection>(ProjectionLifecycle.Async);
+            opts.Events.AppendMode = EventAppendMode.Quick;
         })
         .AddAsyncDaemon(DaemonMode.Solo);
 
