@@ -90,8 +90,8 @@ services:
     image: xflow-insights-api:latest
     container_name: insights-api-eventstore
     profiles: ["app"]
-    cpus: '8'
-    mem_limit: 8G
+    cpus: '2'
+    mem_limit: 2G
     networks:
       - backend
     environment:
