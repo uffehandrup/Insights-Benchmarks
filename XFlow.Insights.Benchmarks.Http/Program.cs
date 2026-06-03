@@ -14,8 +14,10 @@ internal static class Program
     private const int ActiveWorkflowPoolCapacity = 4096;
     private const int ProjectionPollWorkerCount = 10;
     private const int ProjectionPollAttempts = 20;
-    private const int InjectRate = 50;
-    private const int ReadRate = 50;
+
+    private const int InjectRate = 30;
+    private const int ReadRate = 30;
+    
     private static readonly TimeSpan ProjectionPollDelay = TimeSpan.FromMilliseconds(50);
 
     static async Task Main(string[] args)

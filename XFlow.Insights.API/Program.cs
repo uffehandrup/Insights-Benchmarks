@@ -9,6 +9,7 @@ using XFlow.Insights.API.Domains.Workflows;
 using XFlow.Insights.API.Domains.Workflows.DomainEvents;
 using XFlow.Insights.API.Domains.Workflows.Projections;
 using XFlow.Insights.API.Domains.Workflows.Repositories;
+using JasperFx.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 

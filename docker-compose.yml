@@ -15,15 +15,15 @@ services:
       - "5432:5432"
     volumes:
       - marten_es_data:/var/lib/postgresql
-    command:
-      # Optimization for event-heavy workloads
-      - "postgres"
-      - "-c"
-      - "wal_level=logical" # Write Ahead Log = Enables Change Data Capture CDC
-      - "-c"
-      - "max_replication_slots=10"
-      - "-c"
-      - "max_connections=250"
+#    command:
+#      # Optimization for event-heavy workloads
+#      - "postgres"
+#      - "-c"
+#      - "wal_level=logical" # Write Ahead Log = Enables Change Data Capture CDC
+#      - "-c"
+#      - "max_replication_slots=10"
+#      - "-c"
+#      - "max_connections=250"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U es_admin -d event_sourcing"]
       interval: 5s
@@ -78,7 +78,7 @@ services:
       - backend
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - Database__PostgreSQLConnectionString=Host=192.168.0.101;Port=5432;Database=event_sourcing;Username=es_admin;Password=StrongForNow1;Maximum Pool Size=40
+      - Database__PostgreSQLConnectionString=Host=event-store;Port=5432;Database=event_sourcing;Username=es_admin;Password=StrongForNow1;
       - Database__Provider=Postgres
     ports:
       - "8080:8080"
@@ -90,15 +90,15 @@ services:
     image: xflow-insights-api:latest
     container_name: insights-api-eventstore
     profiles: ["app"]
-    cpus: '8'
-    mem_limit: 8G
+    cpus: '2'
+    mem_limit: 2G
     networks:
       - backend
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - Database__Provider=EventStore
-      - Database__EventStoreDBConnectionString=esdb://admin:changeit@192.168.0.101:2113?tls=false
-      - Database__ProjectionPostgreSQLConnectionString=Host=192.168.0.101;Port=5432;Database=event_sourcing;Username=es_admin;Password=StrongForNow1;Maximum Pool Size=20
+      - Database__EventStoreDBConnectionString=esdb://admin:changeit@eventstoredb:2113?tls=false
+      - Database__ProjectionPostgreSQLConnectionString=Host=event-store;Port=5432;Database=event_sourcing;Username=es_admin;Password=StrongForNow1;
     ports:
       - "8081:8080"
 
