@@ -102,44 +102,6 @@ services:
     ports:
       - "8081:8080"
 
-  benchmark-postgresql:
-    image: mcr.microsoft.com/dotnet/sdk:8.0
-    container_name: benchmark_postgresql
-    profiles: ["benchmarks"]
-    working_dir: /workspace
-    cpus: '2'
-    mem_limit: 2G
-    volumes:
-      - .:/workspace
-    networks:
-      - backend
-    environment:
-      - Database__ConnectionString=Host=event-store;Port=5432;Database=event_sourcing;Username=es_admin;Password=StrongForNow1
-    depends_on:
-      event-store:
-        condition: service_healthy
-    command: ["dotnet", "run", "--project", "XFlow.Insights.Benchmarks.PostgreSQL/XFlow.Insights.Benchmarks.PostgreSQL.csproj", "-c", "Release"]
-    restart: "no"
-
-  benchmark-eventstoredb:
-    image: mcr.microsoft.com/dotnet/sdk:8.0
-    container_name: benchmark_eventstoredb
-    profiles: ["benchmarks"]
-    working_dir: /workspace
-    cpus: '2'
-    mem_limit: 2G
-    volumes:
-      - .:/workspace
-    networks:
-      - backend
-    environment:
-      - EventStoreDB__ConnectionString=esdb://admin:changeit@eventstoredb:2113?tls=false
-    depends_on:
-      eventstoredb:
-        condition: service_started
-    command: ["dotnet", "run", "--project", "XFlow.Insights.Benchmarks.EventStoreDB/XFlow.Insights.Benchmarks.EventStoreDB.csproj", "-c", "Release"]
-    restart: "no"
-
 
 networks:
   backend: {}
